@@ -4,7 +4,7 @@ Last updated: 2026-09-18
 
 ## Current stage
 
-Stage 9 implementation is now being continued in the public `ys06146/the-cabinet-desktop` source repository. The user authorized public source upload and a visible automatic-update button on 2026-09-18. Installer publication and real update acceptance remain separate unfinished release work.
+Stage 9 implementation is now being continued in the public `ys06146/the-cabinet-desktop` source repository. The user authorized public source upload and a visible automatic-update button on 2026-09-18. The user subsequently authorized publishing v0.1.1. This initial public release is unsigned; real installed-update and failure-recovery acceptance remain unverified.
 
 The Stage 9 verification evidence below is historical (2026-07-31), not a claim that those packaging checks were repeated for every later change.
 
@@ -172,7 +172,7 @@ The Stage 9 verification evidence below is historical (2026-07-31), not a claim 
 ## Release gate
 
 - Public source repository `ys06146/the-cabinet-desktop` was created on 2026-09-18. A published installer release with matching update assets still needs to be prepared.
-- This workspace now has a `main` Git branch and `origin` pointing to `https://github.com/ys06146/the-cabinet-desktop.git`. No release tag has been created for this upload.
+- This workspace now has a `main` Git branch and `origin` pointing to `https://github.com/ys06146/the-cabinet-desktop.git`. The v0.1.1 release tag is prepared from the reviewed main release commit.
 - Setup and application executables are unsigned and updater publisher authentication is not configured.
 - A destructive v0.1.0→v0.1.1 installer failure/rollback test has not been run on a disposable VM snapshot.
 - See `docs/RELEASE_READINESS.md` and `docs/UPDATE_VERIFICATION.md` for severity, evidence, and the required acceptance procedure.

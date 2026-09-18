@@ -2,9 +2,11 @@
 
 The Cabinet은 비개발자를 위한 Windows 우선 개인 워크스페이스입니다. 금융 리서치를 정리하는 **Market Room**과 자연어 게임 아이디어를 작은 기획·코드·플레이 가능한 프로토타입으로 발전시키는 **Game Atelier**로 구성됩니다.
 
-> 현재 상태: Stage 9까지 구현된 앱을 공개 GitHub 저장소에서 이어서 개발합니다. 실제 API는 연결하지 않았으며, 설치 파일의 공개 릴리스와 실제 자동 업데이트 검증은 아직 남아 있습니다.
+> 현재 상태: v0.1.1 초기 공개 Windows 버전입니다. 실제 데이터·LLM API는 아직 Mock이며, 코드 서명과 실제 설치 업데이트 수용 시험은 남아 있습니다.
 
 소스 저장소: [ys06146/the-cabinet-desktop](https://github.com/ys06146/the-cabinet-desktop)
+
+설치 파일: [The Cabinet v0.1.1](https://github.com/ys06146/the-cabinet-desktop/releases/tag/v0.1.1) · Windows x64 · 서명되지 않은 초기 배포판
 
 앱 상단의 **자동 업데이트** 버튼으로 새 버전을 확인하고 설정 화면에서 다운로드와 재시작 설치를 진행할 수 있습니다. 설치형 앱은 시작 후에도 자동으로 새 버전을 확인합니다.
 
@@ -155,9 +157,9 @@ git push origin v0.1.1
 
 ## 현재 공개 배포 상태
 
-로컬 Production build, Windows x64 NSIS, 핵심 사용자 흐름, 저장·재실행 복원, 한글·공백 경로 설치는 검증했습니다. 다만 다음 항목이 남아 있어 공개 배포는 승인하지 않은 상태입니다.
+이전 Stage 9에서 로컬 Production build, Windows x64 NSIS, 핵심 사용자 흐름, 저장·재실행 복원, 한글·공백 경로 설치를 검증했습니다. 2026-09-18 사용자 요청에 따라 v0.1.1 초기 공개 릴리스를 진행합니다. 아래 항목은 현재 배포의 알려진 한계이며, 검증 완료로 간주하지 않습니다.
 
-- 공개 소스 저장소는 준비되었습니다. 자동 업데이트용 설치 파일·blockmap·`latest.yml`을 포함한 Published Release는 별도로 준비해야 합니다.
+- 릴리스는 설치 파일·blockmap·`latest.yml`을 제공합니다. 자동 업데이트는 설치된 앱에서 더 높은 버전이 공개되었을 때 동작합니다.
 - 실제 v0.1.0→v0.1.1 GitHub 업데이트 수용 시험 미완료
 - Setup과 앱 실행 파일의 Windows 코드 서명 부재
 - 설치 중 실패 시 기존 버전 rollback의 VM 검증 미완료

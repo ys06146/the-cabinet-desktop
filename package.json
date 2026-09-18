@@ -1,6 +1,6 @@
 {
   "name": "the-cabinet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A private desktop workspace for market research and game ideation.",
   "main": "dist-electron/main/index.cjs",
   "author": "The Cabinet",

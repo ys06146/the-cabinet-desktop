@@ -15,16 +15,17 @@ remain explicit user actions, with the existing save-before-install barrier.
 - Use a local NTFS checkout for dependency installation when Google Drive's
   virtual filesystem cannot reliably write `node_modules`.
 
-## Remaining installer release work
+## Follow-up after the initial v0.1.1 release
 
 1. Configure Windows code signing and updater publisher verification.
 2. Run a clean Windows quality gate and inspect the signed installer, updater
    metadata, and Electron fuses.
-3. Prepare matching version tags and Published Releases with the Setup EXE,
-   blockmap, and `latest.yml` when installer publication is requested.
+3. Preserve the v0.1.1 tag and released assets. Use a higher version for every
+   later update; never replace an existing installer or its checksum metadata.
 4. Perform the v0.1.0-to-v0.1.1 VM procedure in `docs/UPDATE_VERIFICATION.md`,
    including data preservation and installer-failure recovery from a snapshot.
 
-The public source repository alone does not provide downloadable updates.
+The user explicitly authorized publishing the unsigned initial v0.1.1 release on
+2026-09-18. The release supplies the Setup EXE, blockmap, and `latest.yml`.
 The earlier Stage 9 evidence in the release documents is historical; it does not
 establish that a live update or signed installer release has passed acceptance.
