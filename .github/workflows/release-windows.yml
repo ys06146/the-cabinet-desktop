@@ -77,6 +77,53 @@ jobs:
       - name: Build production application
         run: npm run build
 
+      - name: Prepare one draft Release
+        id: draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $releasePath = "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
+          $lookupErrors = Join-Path $env:RUNNER_TEMP 'release-lookup-errors.txt'
+          $response = gh api --include $releasePath 2> $lookupErrors
+          $lookupExitCode = $LASTEXITCODE
+          $responseText = [string]::Join([Environment]::NewLine, $response)
+          $statusMatch = [regex]::Match($responseText, '(?m)^HTTP/\S+\s+(\d{3})\b')
+          if (-not $statusMatch.Success) {
+            throw 'GitHub release lookup did not return an HTTP status.'
+          }
+
+          $status = [int]$statusMatch.Groups[1].Value
+          if ($status -eq 404) {
+            $notesPath = "docs/releases/v$env:APP_VERSION.md"
+            $createArgs = @(
+              'release', 'create', $env:RELEASE_TAG,
+              '--repo', $env:GITHUB_REPOSITORY, '--verify-tag', '--draft',
+              '--title', "The Cabinet v$env:APP_VERSION"
+            )
+            if (Test-Path -LiteralPath $notesPath -PathType Leaf) {
+              $createArgs += @('--notes-file', $notesPath)
+            } else {
+              $createArgs += '--generate-notes'
+            }
+            gh @createArgs
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create the draft release.' }
+          } elseif ($status -ne 200 -or $lookupExitCode -ne 0) {
+            throw "GitHub release lookup failed with HTTP $status (exit $lookupExitCode)."
+          }
+
+          $releaseJson = gh api $releasePath
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the target release.' }
+          $release = $releaseJson | ConvertFrom-Json
+          if (-not $release.draft -or $release.prerelease) {
+            throw 'Only a stable draft release can receive artifacts. Published releases must not be overwritten.'
+          }
+          "release_id=$($release.id)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Package and publish Windows x64 update
         shell: pwsh
         env:
@@ -109,6 +156,45 @@ jobs:
             exit 1
           }
 
+      - name: Verify draft assets and publish Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_ID: ${{ steps.draft.outputs.release_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the draft release.' }
+          $release = $releaseJson | ConvertFrom-Json
+          if (-not $release.draft -or $release.prerelease -or $release.tag_name -ne $env:RELEASE_TAG) {
+            throw 'The target release must still be the stable draft for this tag.'
+          }
+
+          $requiredAssets = @(
+            "The-Cabinet-Setup-$env:APP_VERSION.exe",
+            "The-Cabinet-Setup-$env:APP_VERSION.exe.blockmap",
+            'latest.yml'
+          )
+          foreach ($name in $requiredAssets) {
+            $assets = @($release.assets | Where-Object { $_.name -eq $name })
+            if ($assets.Count -ne 1 -or $assets[0].state -ne 'uploaded') {
+              throw "Draft release is missing a completed unique asset: $name"
+            }
+            $localFile = Get-Item -LiteralPath (Join-Path 'release' $name)
+            if ($assets[0].size -ne $localFile.Length -or $localFile.Length -le 0) {
+              throw "Draft release asset has the wrong size: $name"
+            }
+            $localDigest = 'sha256:' + (Get-FileHash -LiteralPath $localFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($assets[0].digest -ne $localDigest) {
+              throw "Draft release asset does not match the local SHA256: $name"
+            }
+          }
+
+          gh release edit $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --draft=false
+          if ($LASTEXITCODE -ne 0) { throw 'Could not publish the verified draft release.' }
+
       - name: Verify published Release
         shell: pwsh
         env:
@@ -117,7 +203,9 @@ jobs:
           APP_VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
+          $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify the published release.' }
+          $release = $releaseJson | ConvertFrom-Json
           if ($release.draft -or $release.prerelease) {
             Write-Error 'The GitHub Release must be published and must not be a prerelease.'
             exit 1

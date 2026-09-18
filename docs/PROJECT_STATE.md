@@ -171,8 +171,8 @@ The Stage 9 verification evidence below is historical (2026-07-31), not a claim 
 
 ## Release gate
 
-- Public source repository `ys06146/the-cabinet-desktop` was created on 2026-09-18. A published installer release with matching update assets still needs to be prepared.
-- This workspace now has a `main` Git branch and `origin` pointing to `https://github.com/ys06146/the-cabinet-desktop.git`. The v0.1.1 release tag is prepared from the reviewed main release commit.
+- Public source repository `ys06146/the-cabinet-desktop` was created on 2026-09-18. The v0.1.1 installer release is published; the anonymously downloaded EXE, update metadata, and independently recomputed blockmap agree.
+- This workspace now has a `main` Git branch and `origin` pointing to `https://github.com/ys06146/the-cabinet-desktop.git`. The published v0.1.1 tag points to application commit `23ac228704c09f6112bd4dfdf87b6bfa83efdf3c`; later workflow-only fixes do not move that tag.
 - Setup and application executables are unsigned and updater publisher authentication is not configured.
 - A destructive v0.1.0→v0.1.1 installer failure/rollback test has not been run on a disposable VM snapshot.
 - See `docs/RELEASE_READINESS.md` and `docs/UPDATE_VERIFICATION.md` for severity, evidence, and the required acceptance procedure.

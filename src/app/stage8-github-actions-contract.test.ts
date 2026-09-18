@@ -41,6 +41,13 @@ const simpleRunCommands = (source: string) =>
     match[1].trim(),
   );
 
+const extractReleaseStep = (name: string) => {
+  const start = releaseWorkflow.indexOf('      - name: ' + name + '\n');
+  if (start === -1) return '';
+  const end = releaseWorkflow.indexOf('\n      - name: ', start + 1);
+  return releaseWorkflow.slice(start, end === -1 ? undefined : end);
+};
+
 describe('Stage 8 GitHub Actions contract', () => {
   it('runs the non-publishing CI checks for main pushes and pull requests', () => {
     const triggers = extractTopLevelBlock(ciWorkflow, 'on');
@@ -124,6 +131,78 @@ describe('Stage 8 GitHub Actions contract', () => {
     ]);
     expect(releaseWorkflow).toMatch(
       /GH_TOKEN:\s*\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/,
+    );
+  });
+
+  it('creates one stable draft before concurrent uploads and publishes only after verification', () => {
+    const stages = [
+      'run: npm run build',
+      '- name: Prepare one draft Release',
+      'electron-builder --win --x64 --publish always',
+      '- name: Verify local release artifacts',
+      '- name: Verify draft assets and publish Release',
+      'gh release edit $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --draft=false',
+      '- name: Verify published Release',
+    ];
+    let previousPosition = -1;
+    for (const stage of stages) {
+      const position = releaseWorkflow.indexOf(stage);
+      expect(position, stage).toBeGreaterThan(previousPosition);
+      previousPosition = position;
+    }
+
+    expect(releaseWorkflow).toMatch(
+      /concurrency:\s*\n\s+group:\s*release-windows-\$\{\{\s*github\.ref\s*\}\}\s*\n\s+cancel-in-progress:\s*false/,
+    );
+    const prepare = extractReleaseStep('Prepare one draft Release');
+    expect(prepare).toContain('gh api --include $releasePath');
+    expect(prepare).toContain('if (-not $statusMatch.Success)');
+    expect(prepare).toContain('if ($status -eq 404)');
+    expect(prepare).toContain(
+      'elseif ($status -ne 200 -or $lookupExitCode -ne 0)',
+    );
+    expect(prepare.match(/gh @createArgs/g)).toHaveLength(1);
+    expect(prepare).toContain("'--verify-tag', '--draft'");
+    expect(prepare).toContain(
+      'if (-not $release.draft -or $release.prerelease)',
+    );
+    expect(prepare).toContain('Published releases must not be overwritten.');
+    expect(prepare).toContain('docs/releases/v$env:APP_VERSION.md');
+    expect(prepare).toContain("'--notes-file', $notesPath");
+    expect(prepare).toContain("'--generate-notes'");
+    expect(prepare).not.toMatch(/--clobber|release delete|--draft=false/);
+  });
+
+  it('requires every uploaded asset to match the local file before publishing', () => {
+    const verify = extractReleaseStep('Verify draft assets and publish Release');
+    expect(verify).toContain(
+      'RELEASE_ID: ${{ steps.draft.outputs.release_id }}',
+    );
+    expect(verify).toContain('releases/$env:RELEASE_ID');
+    expect(verify).toContain(
+      '-not $release.draft -or $release.prerelease -or $release.tag_name -ne $env:RELEASE_TAG',
+    );
+    for (const asset of [
+      'The-Cabinet-Setup-$env:APP_VERSION.exe',
+      'The-Cabinet-Setup-$env:APP_VERSION.exe.blockmap',
+      'latest.yml',
+    ]) {
+      expect(verify).toContain(asset);
+    }
+    expect(verify).toContain(
+      "$assets.Count -ne 1 -or $assets[0].state -ne 'uploaded'",
+    );
+    expect(verify).toContain(
+      '$assets[0].size -ne $localFile.Length -or $localFile.Length -le 0',
+    );
+    expect(verify).toContain('Get-FileHash');
+    expect(verify).toContain('-Algorithm SHA256');
+    expect(verify).toContain('if ($assets[0].digest -ne $localDigest)');
+    expect(verify.indexOf('--draft=false')).toBeGreaterThan(
+      verify.indexOf('if ($assets[0].digest -ne $localDigest)'),
+    );
+    expect(verify).toContain(
+      "if ($LASTEXITCODE -ne 0) { throw 'Could not publish the verified draft release.' }",
     );
   });
 
