@@ -1,0 +1,136 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-windows-x64:
+    name: Publish Windows x64 installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate tag and package version
+        id: version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ($env:TARGET_REPOSITORY -ne 'ys06146/the-cabinet-desktop') {
+            Write-Error "Releases are allowed only from ys06146/the-cabinet-desktop."
+            exit 1
+          }
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Error "Release tag must use the stable vMAJOR.MINOR.PATCH format."
+            exit 1
+          }
+
+          $package = Get-Content -Raw -Encoding UTF8 package.json | ConvertFrom-Json
+          $packageVersion = [string]$package.version
+          $expectedTag = "v$packageVersion"
+          if ($packageVersion -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Error "package.json version must use the stable MAJOR.MINOR.PATCH format."
+            exit 1
+          }
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+            Write-Error "Tag $env:RELEASE_TAG does not match package.json version $packageVersion."
+            exit 1
+          }
+
+          "version=$packageVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Package and publish Windows x64 update
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --no-install electron-builder --win --x64 --publish always
+
+      - name: Verify local release artifacts
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $requiredFiles = @(
+            "release/The-Cabinet-Setup-$env:APP_VERSION.exe",
+            "release/The-Cabinet-Setup-$env:APP_VERSION.exe.blockmap",
+            'release/latest.yml'
+          )
+
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Required release artifact was not generated: $file"
+            }
+          }
+          if (-not (Test-Path -LiteralPath 'release/win-unpacked' -PathType Container)) {
+            Write-Error 'The unpacked Windows build was not generated.'
+            exit 1
+          }
+          if (-not (Get-ChildItem -LiteralPath 'release/win-unpacked' -Filter '*.exe' -File)) {
+            Write-Error 'The unpacked Windows build does not contain an executable.'
+            exit 1
+          }
+
+      - name: Verify published Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
+          if ($release.draft -or $release.prerelease) {
+            Write-Error 'The GitHub Release must be published and must not be a prerelease.'
+            exit 1
+          }
+
+          $assetNames = @($release.assets | ForEach-Object { $_.name })
+          $requiredAssets = @(
+            "The-Cabinet-Setup-$env:APP_VERSION.exe",
+            "The-Cabinet-Setup-$env:APP_VERSION.exe.blockmap",
+            'latest.yml'
+          )
+          foreach ($asset in $requiredAssets) {
+            if ($assetNames -notcontains $asset) {
+              throw "Published GitHub Release is missing required asset: $asset"
+            }
+          }
