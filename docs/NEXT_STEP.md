@@ -1,12 +1,16 @@
 # Next Step
 
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 
 The user authorized continuing this project in the public source repository
 `ys06146/the-cabinet-desktop` and adding a visible automatic-update button.
 The app's top bar now opens the existing update settings and starts a check when
 no update is already available or in progress. Downloads and restart installation
 remain explicit user actions, with the existing save-before-install barrier.
+
+## Live data correction
+
+v0.1.2 replaces default mock stock/news data with current external feeds and automatic refresh. Validate the packaged app's real provider connectivity and source timestamps, then publish a new v0.1.2 tag and assets. Preserve v0.1.1. See LIVE_DATA.md for endpoint limitations and refresh behavior.
 
 ## Continue development
 

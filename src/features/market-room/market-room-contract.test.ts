@@ -12,7 +12,7 @@ const providerContractSource = readFileSync(
 describe('Market Room contracts', () => {
   it('includes the required research disclaimer verbatim', () => {
     expect(marketRoomSource).toContain(
-      '현재 화면은 예시 데이터를 사용한 리서치 도구입니다. 투자 권유 또는 매매 신호가 아닙니다.',
+      '시세는 제공처와 거래 시간에 따라 지연될 수 있습니다. 분석은 가격 데이터의 규칙 기반 계산이며 투자 권유 또는 매매 신호가 아닙니다.',
     );
   });
 
@@ -25,4 +25,3 @@ describe('Market Room contracts', () => {
     );
   });
 });
-

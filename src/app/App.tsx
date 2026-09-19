@@ -10,10 +10,10 @@ import { reportApplicationError } from '../lib/report-error';
 const UPDATE_SAVE_FAILURE_MESSAGE =
   '작성 중인 메모나 게임 프로젝트를 저장하지 못했습니다. 저장 상태를 확인한 뒤 다시 시도해 주세요.';
 
-function renderSection(sectionId: WorkspaceSectionId): React.JSX.Element {
+function renderSection(sectionId: WorkspaceSectionId): React.JSX.Element | null {
   switch (sectionId) {
     case 'market-room':
-      return <MarketRoom />;
+      return null;
     case 'game-atelier':
       return <GameAtelier />;
     case 'saved-items':
@@ -65,6 +65,9 @@ export function App(): React.JSX.Element {
       activeSectionId={activeSectionId}
       onSectionChange={setActiveSectionId}
     >
+      <div hidden={activeSectionId !== 'market-room'}>
+        <MarketRoom />
+      </div>
       {renderSection(activeSectionId)}
     </WorkspaceShell>
   );

@@ -11,14 +11,19 @@ const memoSource = readFileSync(
 );
 
 describe('Stage 4 Market Room UI contracts', () => {
-  it('exposes every news filter and the complete detail brief', () => {
+  it('exposes every news filter, article provenance and safe original links without invented analysis', () => {
     for (const label of ['전체', '국내', '미국', '기업', '산업', '경제', '정책']) {
       expect(newsSource).toContain(`'${label}'`);
     }
 
-    for (const section of ['요약', '직접 영향', '간접 영향', '반대 관점', '확인되지 않은 부분']) {
-      expect(newsSource).toContain(`title="${section}"`);
+    for (const field of ['news.outlet', 'news.publishedAt', 'news.fetchedAt', 'news.articleUrl']) {
+      expect(newsSource).toContain(field);
     }
+    expect(newsSource).toContain('window.theCabinet.openNewsArticle(news.id)');
+    for (const field of ['directImpact', 'indirectImpact', 'counterPerspective', 'SENTIMENT_PRESENTATION']) {
+      expect(newsSource).not.toContain(field);
+    }
+    expect(newsSource).toContain('마지막으로 받은 뉴스를 표시합니다.');
 
     expect(newsSource).toContain('dialog.showModal()');
     expect(newsSource).toContain('triggerRef.current?.focus()');

@@ -134,7 +134,7 @@ function ThemeDetail({ theme }: { theme: InvestmentTheme }): React.JSX.Element {
           </div>
           <div className="shrink-0 text-right">
             <span className="border border-cabinet-brass/60 px-2 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-cabinet-brass">
-              Mock
+              예시 · 실제 뉴스와 무관
             </span>
             <p className="mt-2 font-mono text-[0.6rem] text-cabinet-muted">{formatUpdatedAt(theme.updatedAt)}</p>
           </div>
@@ -198,16 +198,16 @@ export function ThemeExplorer({ onSelectTheme, selectedThemeId, themes }: ThemeE
     <section aria-labelledby="theme-explorer-title">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-cabinet-border pb-4">
         <div>
-          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-cabinet-brass">Ten Research Themes</p>
-          <h2 className="mt-1 font-serif text-2xl text-cabinet-text" id="theme-explorer-title">테마 탐색</h2>
+          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-cabinet-brass">Sample Research Themes</p>
+          <h2 className="mt-1 font-serif text-2xl text-cabinet-text" id="theme-explorer-title">테마 탐색 · 예시</h2>
         </div>
-        <p className="max-w-md text-xs leading-5 text-cabinet-muted">관심도와 모멘텀은 목업 데이터이며 매매 신호가 아닙니다.</p>
+        <p className="max-w-md text-xs leading-5 text-cabinet-muted">관계·수치·뉴스 개수는 고정 예시이며 현재 시세·뉴스와 연결되지 않습니다.</p>
       </header>
 
       {themes.length === 0 ? (
         <div className="border border-cabinet-border bg-cabinet-surface/45 px-5 py-12 text-center">
           <p className="font-serif text-xl text-cabinet-text">표시할 테마가 없습니다</p>
-          <p className="mt-2 text-sm text-cabinet-muted">Mock Theme Provider가 반환한 데이터가 없습니다.</p>
+          <p className="mt-2 text-sm text-cabinet-muted">예시 테마 데이터가 없습니다.</p>
         </div>
       ) : (
         <div className="grid min-w-0 gap-4 xl:grid-cols-[13rem_minmax(0,1fr)]">

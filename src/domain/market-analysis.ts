@@ -299,7 +299,9 @@ export function createMarketAnalysis(
   if (volumePercent !== null && Math.abs(volumePercent) > 50) {
     riskFactors.push('Volume differs sharply from its comparison baseline.');
   }
-  riskFactors.push('All values are simulated and omit live events, liquidity, and execution conditions.');
+  riskFactors.push(quote.source === 'mock'
+    ? 'All values are simulated and omit live events, liquidity, and execution conditions.'
+    : 'Indicators use the displayed historical bars. Provider delays, session differences, news, liquidity, and execution conditions are not captured by these rules.');
 
   const availableIndicators = [sma5, sma20, sma60, rsi, macd, signal].filter(
     (value) => value !== null,
@@ -345,4 +347,3 @@ export function createMarketAnalysis(
     },
   };
 }
-

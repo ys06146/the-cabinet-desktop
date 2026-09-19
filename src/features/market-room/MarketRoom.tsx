@@ -15,7 +15,7 @@ import { NewsDesk } from './components/NewsDesk';
 import { ThemeExplorer } from './components/ThemeExplorer';
 
 const RESEARCH_DISCLAIMER =
-  '현재 화면은 예시 데이터를 사용한 리서치 도구입니다. 투자 권유 또는 매매 신호가 아닙니다.';
+  '시세는 제공처와 거래 시간에 따라 지연될 수 있습니다. 분석은 가격 데이터의 규칙 기반 계산이며 투자 권유 또는 매매 신호가 아닙니다.';
 
 function ContentSkeleton({ label }: { label: string }): React.JSX.Element {
   return (
@@ -45,6 +45,7 @@ export function MarketRoom(): React.JSX.Element {
             isListLoading={content.news.status === 'loading'}
             items={content.news.data}
             listError={content.news.error}
+            lastCheckedAt={content.news.lastCheckedAt}
             onCloseDetail={content.closeNewsDetail}
             onFilterChange={content.setNewsFilter}
             onRetryDetail={content.retryNewsDetail}
@@ -90,14 +91,14 @@ export function MarketRoom(): React.JSX.Element {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-cabinet-border pb-5">
         <div>
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em] text-cabinet-brass">
-            Market Room · Mock Research
+            Market Room · Research
           </p>
           <h2 className="mt-2 font-serif text-3xl text-cabinet-text sm:text-4xl">
             A measured view of the market.
           </h2>
         </div>
         <p className="max-w-md text-xs leading-5 text-cabinet-muted sm:text-right">
-          Prices, reporting, themes, and commentary are generated locally through mock providers.
+          시세는 1분, 뉴스는 5분마다 확인합니다. 출처의 제공 시각과 수신 시각을 함께 확인하세요.
         </p>
       </header>
 

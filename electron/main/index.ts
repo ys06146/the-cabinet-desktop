@@ -1,7 +1,10 @@
-import { app, BrowserWindow, dialog, screen } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from 'electron';
 import { resolve } from 'node:path';
 import { getEnvironmentConfig, type EnvironmentConfig } from './environment';
-import { registerIpcHandlers } from './ipc';
+import { assertTrustedSender, registerIpcHandlers } from './ipc';
+import { registerMarketDataIpcHandlers } from './market-data-ipc';
+import { LiveMarketDataProvider } from './live-market-data';
+import { LiveNewsProvider } from './live-news';
 import { logger } from './logger';
 import { GameAtelierStore } from './game-atelier-store';
 import { MarketResearchStore } from './market-research-store';
@@ -69,6 +72,7 @@ async function createMainWindow(config: EnvironmentConfig): Promise<BrowserWindo
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
       webSecurity: true,
       allowRunningInsecureContent: false,
     },
@@ -198,6 +202,13 @@ async function bootstrap(): Promise<void> {
   const marketResearchStore = new MarketResearchStore({ userDataPath: app.getPath('userData') });
   const gameAtelierStore = new GameAtelierStore({ userDataPath: app.getPath('userData') });
   registerIpcHandlers(config, marketResearchStore, gameAtelierStore);
+  registerMarketDataIpcHandlers(
+    ipcMain,
+    (event) => assertTrustedSender(event, config),
+    new LiveMarketDataProvider(),
+    new LiveNewsProvider(),
+    (url) => shell.openExternal(url),
+  );
   updateRuntime = initializeUpdateRuntime(config, () => mainWindow);
 
   await createMainWindow(config);

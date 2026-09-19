@@ -6,8 +6,17 @@ import type { GameAtelierDataV2 } from '../../src/domain/game-atelier-data';
 import type { GameProject } from '../../src/domain/game-project';
 import type { GameProjectWorkspace } from '../../src/domain/game-project-workspace';
 import type { UpdateInstallResult, UpdateState } from './update';
+import type { ChartRange, MarketSummary, OHLCV, StockQuote } from '../../src/domain/market';
+import type { NewsDetail, NewsFilter, NewsItem } from '../../src/domain/news';
 
 export const IPC_CHANNELS = {
+  getMarketSummary: 'market-data:get-summary',
+  getWatchlist: 'market-data:get-watchlist',
+  getStockQuote: 'market-data:get-quote',
+  getHistoricalData: 'market-data:get-history',
+  getNews: 'market-data:get-news',
+  getNewsDetail: 'market-data:get-news-detail',
+  openNewsArticle: 'market-data:open-news-article',
   getRuntimeInfo: 'app:get-runtime-info',
   reportRendererError: 'app:report-renderer-error',
   getMarketResearchData: 'market-research:get-data',
@@ -93,6 +102,13 @@ export type MarketResearchImportResult =
     };
 
 export interface CabinetBridge {
+  getMarketSummary: () => Promise<MarketSummary>;
+  getWatchlist: () => Promise<StockQuote[]>;
+  getStockQuote: (symbol: string) => Promise<StockQuote>;
+  getHistoricalData: (symbol: string, range: ChartRange) => Promise<OHLCV[]>;
+  getNews: (filter: NewsFilter) => Promise<NewsItem[]>;
+  getNewsDetail: (newsId: string) => Promise<NewsDetail>;
+  openNewsArticle: (newsId: string) => Promise<void>;
   getRuntimeInfo: () => Promise<RuntimeInfo>;
   reportRendererError: (report: RendererErrorReport) => void;
   getMarketResearchData: () => Promise<MarketResearchDataV1>;

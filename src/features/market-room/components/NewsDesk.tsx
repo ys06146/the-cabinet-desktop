@@ -1,27 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NEWS_FILTERS, type NewsDetail, type NewsFilter, type NewsItem } from '../../../domain/news';
+import { formatSourceTime } from './source-formatters';
 
 const FILTER_LABELS: Record<NewsFilter, string> = {
-  all: '전체',
-  domestic: '국내',
-  us: '미국',
-  company: '기업',
-  industry: '산업',
-  economy: '경제',
-  policy: '정책',
-};
-
-
-const IMPORTANCE_PRESENTATION: Record<NewsItem['importance'], { label: string; className: string }> = {
-  high: { label: '높음', className: 'border-cabinet-warning/70 text-cabinet-warning' },
-  medium: { label: '보통', className: 'border-cabinet-border text-cabinet-muted' },
-  low: { label: '낮음', className: 'border-cabinet-border/70 text-cabinet-muted' },
-};
-
-const SENTIMENT_PRESENTATION: Record<NewsItem['sentiment'], { label: string; className: string }> = {
-  positive: { label: '긍정', className: 'text-cabinet-positive' },
-  neutral: { label: '중립', className: 'text-cabinet-muted' },
-  negative: { label: '부정', className: 'text-cabinet-negative' },
+  all: '전체', domestic: '국내', us: '미국', company: '기업', industry: '산업', economy: '경제', policy: '정책',
 };
 
 export interface NewsDeskProps {
@@ -32,6 +14,7 @@ export interface NewsDeskProps {
   isListLoading?: boolean;
   items: readonly NewsItem[];
   listError?: string | null;
+  lastCheckedAt?: string | null;
   onCloseDetail: () => void;
   onFilterChange: (filter: NewsFilter) => void;
   onRetryDetail?: (newsId: string) => void;
@@ -41,92 +24,28 @@ export interface NewsDeskProps {
   selectedNewsId: string | null;
 }
 
-function formatPublishedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
-function TagList({ label, values }: { label: string; values: readonly string[] }): React.JSX.Element | null {
-  if (values.length === 0) {
-    return null;
-  }
-
+function NewsArticleLink({ news }: { news: NewsItem }): React.JSX.Element | null {
+  const [error, setError] = useState<string | null>(null);
+  if (!news.articleUrl) return null;
   return (
-    <ul className="flex min-w-0 flex-wrap items-center gap-1.5" aria-label={label}>
-      {values.map((value) => (
-        <li
-          className="max-w-full truncate border border-cabinet-border bg-cabinet-background/40 px-2 py-1 font-mono text-[0.6rem] text-cabinet-muted"
-          key={value}
-        >
-          {value}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <a
+        className="inline-flex min-h-10 items-center border-b border-cabinet-brass text-xs font-bold text-cabinet-brass hover:text-cabinet-text"
+        href={news.articleUrl}
+        onClick={(event) => {
+          event.preventDefault();
+          setError(null);
+          void window.theCabinet.openNewsArticle(news.id).catch(() => setError('기사를 열지 못했습니다. 뉴스를 새로고침한 뒤 다시 시도해 주세요.'));
+        }}
+        rel="noreferrer"
+        target="_blank"
+      >기사 열기 ↗</a>
+      {error ? <p className="mt-2 text-xs text-cabinet-negative" role="alert">{error}</p> : null}
+    </div>
   );
 }
 
-function ImpactList({ items }: { items: readonly string[] }): React.JSX.Element {
-  if (items.length === 0) {
-    return <p className="text-sm leading-6 text-cabinet-muted">현재 목업에서 제시된 항목이 없습니다.</p>;
-  }
-
-  return (
-    <ul className="space-y-2 text-sm leading-6 text-cabinet-muted">
-      {items.map((item) => (
-        <li className="flex gap-3" key={item}>
-          <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-cabinet-brass" />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function DetailSection({
-  children,
-  title,
-  tone = 'default',
-}: {
-  children: React.ReactNode;
-  title: string;
-  tone?: 'default' | 'warning';
-}): React.JSX.Element {
-  return (
-    <section
-      className={`border-b border-cabinet-border px-5 py-5 last:border-b-0 sm:px-6 ${
-        tone === 'warning' ? 'border-l-2 border-l-cabinet-warning bg-cabinet-warning/5' : ''
-      }`}
-    >
-      <h3
-        className={`text-[0.65rem] font-bold uppercase tracking-[0.18em] ${
-          tone === 'warning' ? 'text-cabinet-warning' : 'text-cabinet-brass'
-        }`}
-      >
-        {title}
-      </h3>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-function NewsDetailDrawer({
-  detail,
-  error,
-  isLoading,
-  news,
-  onClose,
-  onRetry,
-  triggerRef,
-}: {
+function NewsDetailDrawer({ detail, error, isLoading, news, onClose, onRetry, triggerRef }: {
   detail: NewsDetail | null;
   error: string | null;
   isLoading: boolean;
@@ -137,270 +56,83 @@ function NewsDetailDrawer({
 }): React.JSX.Element {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const currentDetail = detail?.newsId === news?.id ? detail : null;
-
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog) {
-      return;
-    }
-
-    if (news && !dialog.open) {
-      dialog.showModal();
-    } else if (!news && dialog.open) {
-      dialog.close();
-    }
+    if (news && dialog && !dialog.open) dialog.showModal();
+    else if (!news && dialog?.open) dialog.close();
   }, [news]);
-
-  const handleClose = (): void => {
-    onClose();
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
-  };
 
   return (
     <dialog
       aria-labelledby="news-detail-title"
-      className="fixed inset-y-0 left-auto right-0 m-0 h-[100dvh] max-h-none w-full max-w-[30rem] overflow-hidden border-0 border-l border-cabinet-border bg-cabinet-elevated p-0 text-cabinet-text shadow-cabinet-overlay backdrop:bg-black/70"
-      onClose={handleClose}
+      className="fixed inset-y-0 left-auto right-0 m-0 h-[100dvh] max-h-none w-full max-w-[30rem] overflow-y-auto border-0 border-l border-cabinet-border bg-cabinet-elevated p-5 text-cabinet-text shadow-cabinet-overlay backdrop:bg-black/70 sm:p-6"
+      onClose={() => { onClose(); window.requestAnimationFrame(() => triggerRef.current?.focus()); }}
       ref={dialogRef}
     >
-      {news ? (
-        <div className="flex h-full min-h-0 flex-col">
-          <header className="shrink-0 border-b border-cabinet-border bg-cabinet-surface px-5 py-5 sm:px-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-cabinet-brass">
-                  Mock News Brief
-                </p>
-                <h2 className="mt-2 font-serif text-xl leading-7 text-cabinet-text" id="news-detail-title">
-                  {news.title}
-                </h2>
-                <p className="mt-2 text-xs text-cabinet-muted">
-                  {news.outlet} · {formatPublishedAt(news.publishedAt)}
-                </p>
-              </div>
-              <button
-                autoFocus
-                aria-label="뉴스 상세 닫기"
-                className="flex min-h-11 shrink-0 items-center justify-center border border-cabinet-border px-3 text-sm font-semibold text-cabinet-muted hover:border-cabinet-brass hover:text-cabinet-text"
-                onClick={() => dialogRef.current?.close()}
-                type="button"
-              >
-                닫기
-              </button>
-            </div>
-          </header>
-
-          <div aria-busy={isLoading} className="min-h-0 flex-1 overflow-y-auto">
-            {isLoading ? (
-              <div className="space-y-4 px-5 py-6" role="status">
-                <p className="text-sm text-cabinet-muted">뉴스 영향을 정리하고 있습니다…</p>
-                {[72, 92, 61, 84].map((width) => (
-                  <div
-                    aria-hidden="true"
-                    className="skeleton-shimmer h-3 rounded-cabinet-sm"
-                    key={width}
-                    style={{ width: `${width}%` }}
-                  />
-                ))}
-              </div>
-            ) : null}
-
-            {!isLoading && error ? (
-              <div className="m-5 border border-cabinet-negative/60 bg-cabinet-negative/5 p-4" role="alert">
-                <p className="font-serif text-lg text-cabinet-negative">상세 내용을 불러오지 못했습니다</p>
-                <p className="mt-2 text-sm leading-6 text-cabinet-muted">{error}</p>
-                {onRetry ? (
-                  <button
-                    className="mt-4 min-h-11 border border-cabinet-negative px-4 text-sm font-semibold text-cabinet-text hover:bg-cabinet-negative/10"
-                    onClick={() => onRetry(news.id)}
-                    type="button"
-                  >
-                    다시 시도
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-
-            {!isLoading && !error && currentDetail ? (
-              <>
-                <DetailSection title="요약">
-                  <p className="text-sm leading-7 text-cabinet-muted">{currentDetail.summary}</p>
-                </DetailSection>
-                <DetailSection title="직접 영향">
-                  <ImpactList items={currentDetail.directImpact} />
-                </DetailSection>
-                <DetailSection title="간접 영향">
-                  <ImpactList items={currentDetail.indirectImpact} />
-                </DetailSection>
-                <DetailSection title="반대 관점">
-                  <p className="text-sm leading-7 text-cabinet-muted">{currentDetail.counterPerspective}</p>
-                </DetailSection>
-                <DetailSection title="확인되지 않은 부분" tone="warning">
-                  <ImpactList items={currentDetail.unconfirmedPoints} />
-                </DetailSection>
-              </>
-            ) : null}
+      {news ? <>
+        <div className="flex items-start justify-between gap-4 border-b border-cabinet-border pb-5">
+          <div>
+            <p className="text-xs text-cabinet-brass">{news.source === 'mock' ? '예시 뉴스' : 'Google News RSS'}</p>
+            <h2 className="mt-3 font-serif text-xl leading-8" id="news-detail-title">{news.title}</h2>
           </div>
+          <button autoFocus aria-label="뉴스 상세 닫기" className="min-h-11 shrink-0 border border-cabinet-border px-3 text-sm" onClick={() => dialogRef.current?.close()} type="button">닫기</button>
         </div>
-      ) : null}
+        <dl className="mt-6 space-y-3 text-sm">
+          <div><dt className="text-cabinet-muted">언론사</dt><dd className="mt-1">{news.outlet}</dd></div>
+          <div><dt className="text-cabinet-muted">기사 발행</dt><dd className="mt-1"><time dateTime={news.publishedAt}>{formatSourceTime(news.publishedAt)}</time></dd></div>
+          <div><dt className="text-cabinet-muted">피드 수신</dt><dd className="mt-1">{formatSourceTime(currentDetail?.fetchedAt ?? news.fetchedAt)}</dd></div>
+        </dl>
+        <p className="my-6 text-sm leading-7 text-cabinet-muted">공개 뉴스 피드에 제공된 제목과 발행 정보를 표시합니다. 기사 본문은 원문에서 확인하세요. 검색 피드 반영은 발행 시각보다 늦을 수 있습니다.</p>
+        <NewsArticleLink news={news} />
+        {isLoading ? <p className="mt-5 text-xs text-cabinet-muted" role="status">기사 정보를 확인하고 있습니다…</p> : null}
+        {error ? <div className="mt-5 text-sm text-cabinet-negative" role="alert"><p>{error}</p>{onRetry ? <button className="mt-3 min-h-10 border border-cabinet-border px-3" onClick={() => onRetry(news.id)} type="button">다시 시도</button> : null}</div> : null}
+      </> : null}
     </dialog>
   );
 }
 
-export function NewsDesk({
-  activeFilter,
-  detail,
-  detailError = null,
-  isDetailLoading = false,
-  isListLoading = false,
-  items,
-  listError = null,
-  onCloseDetail,
-  onFilterChange,
-  onRetryDetail,
-  onRetryList,
-  onSelectNews,
-  onToggleSaved,
-  selectedNewsId,
-}: NewsDeskProps): React.JSX.Element {
+export function NewsDesk({ activeFilter, detail, detailError = null, isDetailLoading = false, isListLoading = false, items, listError = null, lastCheckedAt, onCloseDetail, onFilterChange, onRetryDetail, onRetryList, onSelectNews, onToggleSaved, selectedNewsId }: NewsDeskProps): React.JSX.Element {
   const detailTriggerRef = useRef<HTMLButtonElement>(null);
-  const selectedNews = items.find((item) => item.id === selectedNewsId) ?? null;
-
+  const [selection, setSelection] = useState<{ item: NewsItem; filter: NewsFilter } | null>(null);
+  const selectedNews = selection && selection.item.id === selectedNewsId && selection.filter === activeFilter
+    ? selection.item
+    : items.find((item) => item.id === selectedNewsId) ?? null;
+  const closeDetail = (): void => {
+    setSelection(null);
+    onCloseDetail();
+  };
   return (
     <section aria-labelledby="market-news-title" className="border border-cabinet-border bg-cabinet-surface/45">
       <header className="border-b border-cabinet-border px-4 py-5 sm:px-5">
-        <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-cabinet-brass">
-          Fictional News Desk
-        </p>
-        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+        <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-cabinet-brass">News Desk</p>
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-serif text-2xl text-cabinet-text" id="market-news-title">
-              뉴스
-            </h2>
-            <p className="mt-2 text-xs leading-5 text-cabinet-muted">
-              실제 기사를 복제하지 않은 완전한 가상 목업 콘텐츠입니다.
-            </p>
+            <h2 className="font-serif text-2xl text-cabinet-text" id="market-news-title">뉴스</h2>
+            <p className="mt-2 text-xs leading-5 text-cabinet-muted">Google News RSS · 5분마다 확인 · 검색 피드 반영 지연 가능</p>
+            <p className="mt-1 text-xs leading-5 text-cabinet-muted">마지막 확인 {formatSourceTime(lastCheckedAt)} · 피드 수신 {formatSourceTime(items[0]?.fetchedAt)}</p>
           </div>
-          <span className="border border-cabinet-brass/60 px-2 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-cabinet-brass">
-            Mock · {items.length}
-          </span>
+          <button className="min-h-11 border border-cabinet-brass px-3 text-xs font-bold text-cabinet-text disabled:opacity-50" disabled={isListLoading} onClick={onRetryList} type="button">{isListLoading ? '확인 중…' : '뉴스 새로고침'}</button>
         </div>
       </header>
-
       <nav aria-label="뉴스 필터" className="flex flex-wrap gap-2 border-b border-cabinet-border px-4 py-3">
-        {NEWS_FILTERS.map((filter) => (
-          <button
-            aria-pressed={activeFilter === filter}
-            className={`min-h-10 border px-3 text-xs font-semibold ${
-              activeFilter === filter
-                ? 'border-cabinet-brass bg-cabinet-accent text-cabinet-text'
-                : 'border-cabinet-border text-cabinet-muted hover:border-cabinet-brass hover:text-cabinet-text'
-            }`}
-            key={filter}
-            onClick={() => onFilterChange(filter)}
-            type="button"
-          >
-            {FILTER_LABELS[filter]}
-          </button>
-        ))}
+        {NEWS_FILTERS.map((filter) => <button aria-pressed={activeFilter === filter} className={`min-h-10 border px-3 text-xs font-semibold ${activeFilter === filter ? 'border-cabinet-brass bg-cabinet-accent text-cabinet-text' : 'border-cabinet-border text-cabinet-muted hover:border-cabinet-brass'}`} key={filter} onClick={() => { setSelection(null); onFilterChange(filter); }} type="button">{FILTER_LABELS[filter]}</button>)}
       </nav>
-
-      {isListLoading ? (
-        <div aria-live="polite" className="space-y-4 px-5 py-8" role="status">
-          <p className="text-sm text-cabinet-muted">뉴스 목록을 불러오고 있습니다…</p>
-          {[78, 94, 68, 86].map((width) => (
-            <div
-              aria-hidden="true"
-              className="skeleton-shimmer h-3 rounded-cabinet-sm"
-              key={width}
-              style={{ width: `${width}%` }}
-            />
-          ))}
-        </div>
-      ) : listError ? (
-        <div className="m-4 border border-cabinet-negative/60 bg-cabinet-negative/5 p-4" role="alert">
-          <p className="font-serif text-lg text-cabinet-negative">뉴스를 불러오지 못했습니다</p>
-          <p className="mt-2 text-sm leading-6 text-cabinet-muted">{listError}</p>
-          {onRetryList ? (
-            <button
-              className="mt-4 min-h-11 border border-cabinet-negative px-4 text-sm font-semibold text-cabinet-text hover:bg-cabinet-negative/10"
-              onClick={onRetryList}
-              type="button"
-            >
-              다시 시도
+      {listError ? <div className="m-4 border-l-2 border-cabinet-warning bg-cabinet-warning/5 p-4" role="alert"><p className="text-sm text-cabinet-warning">{items.length ? '갱신하지 못해 마지막으로 받은 뉴스를 표시합니다.' : '뉴스를 불러오지 못했습니다.'}</p><p className="mt-2 text-xs text-cabinet-muted">{listError}</p></div> : null}
+      {isListLoading && !items.length ? <p className="px-5 py-8 text-sm text-cabinet-muted" role="status">뉴스 목록을 불러오고 있습니다…</p> : null}
+      {!isListLoading && !listError && !items.length ? <p className="px-5 py-12 text-center text-sm text-cabinet-muted">해당 필터의 뉴스가 없습니다.</p> : null}
+      <div aria-busy={isListLoading} className="divide-y divide-cabinet-border">
+        {items.map((item) => <article className="grid min-w-0 gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5" key={item.id}>
+          <div className="min-w-0">
+            <button aria-haspopup="dialog" className="w-full text-left" onClick={(event) => { detailTriggerRef.current = event.currentTarget; setSelection({ item, filter: activeFilter }); onSelectNews(item.id); }} type="button">
+              <div className="flex flex-wrap gap-2 text-xs text-cabinet-muted"><span>{item.outlet}</span><span aria-hidden="true">·</span><time dateTime={item.publishedAt}>{formatSourceTime(item.publishedAt)}</time>{item.source === 'mock' ? <span>예시</span> : null}</div>
+              <h3 className="mt-2 font-serif text-lg leading-7 text-cabinet-text">{item.title}</h3>
             </button>
-          ) : null}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="px-5 py-12 text-center">
-          <p className="font-serif text-xl text-cabinet-text">해당 필터의 뉴스가 없습니다</p>
-          <p className="mt-2 text-sm text-cabinet-muted">다른 분류를 선택해 목업 브리프를 확인해 보세요.</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-cabinet-border">
-          {items.map((item) => {
-            const importance = IMPORTANCE_PRESENTATION[item.importance];
-            const sentiment = SENTIMENT_PRESENTATION[item.sentiment];
-
-            return (
-              <article className="grid min-w-0 gap-3 px-4 py-4 hover:bg-cabinet-elevated/45 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5" key={item.id}>
-                <button
-                  aria-haspopup="dialog"
-                  className="min-w-0 text-left"
-                  onClick={(event) => {
-                    detailTriggerRef.current = event.currentTarget;
-                    onSelectNews(item.id);
-                  }}
-                  type="button"
-                >
-                  <div className="flex flex-wrap items-center gap-2 text-[0.62rem] font-semibold">
-                    <span className="text-cabinet-muted">{item.outlet}</span>
-                    <span aria-hidden="true" className="text-cabinet-border">·</span>
-                    <time className="font-mono text-cabinet-muted" dateTime={item.publishedAt}>
-                      {formatPublishedAt(item.publishedAt)}
-                    </time>
-                    <span className={`border px-1.5 py-0.5 ${importance.className}`}>중요도 {importance.label}</span>
-                    <span className={sentiment.className}>{sentiment.label}</span>
-                  </div>
-                  <h3 className="mt-2 font-serif text-lg leading-7 text-cabinet-text">{item.title}</h3>
-                  <span className="mt-2 block text-xs leading-5 text-cabinet-muted">
-                    <span className="block line-clamp-1">{item.summaryLines[0]}</span>
-                    <span className="block line-clamp-1">{item.summaryLines[1]}</span>
-                  </span>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <TagList label="관련 종목" values={item.relatedSymbols} />
-                    <TagList label="관련 테마" values={item.relatedThemes} />
-                  </div>
-                </button>
-
-                <button
-                  aria-label={`${item.title} ${item.isSaved ? '저장 해제' : '저장'}`}
-                  aria-pressed={item.isSaved}
-                  className={`min-h-11 self-start border px-3 text-xs font-semibold sm:min-w-16 ${
-                    item.isSaved
-                      ? 'border-cabinet-brass bg-cabinet-brass/10 text-cabinet-brass'
-                      : 'border-cabinet-border text-cabinet-muted hover:border-cabinet-brass hover:text-cabinet-text'
-                  }`}
-                  onClick={() => onToggleSaved(item.id)}
-                  type="button"
-                >
-                  {item.isSaved ? '저장됨' : '저장'}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      <NewsDetailDrawer
-        detail={detail}
-        error={detailError}
-        isLoading={isDetailLoading}
-        news={selectedNews}
-        onClose={onCloseDetail}
-        onRetry={onRetryDetail}
-        triggerRef={detailTriggerRef}
-      />
+            <NewsArticleLink news={item} />
+          </div>
+          <button aria-label={`${item.title} ${item.isSaved ? '저장 해제' : '저장'}`} aria-pressed={item.isSaved} className={`min-h-11 self-start border px-3 text-xs font-semibold ${item.isSaved ? 'border-cabinet-brass text-cabinet-brass' : 'border-cabinet-border text-cabinet-muted'}`} onClick={() => onToggleSaved(item.id)} type="button">{item.isSaved ? '저장됨' : '저장'}</button>
+        </article>)}
+      </div>
+      <NewsDetailDrawer detail={detail} error={detailError} isLoading={isDetailLoading} news={selectedNews} onClose={closeDetail} onRetry={onRetryDetail} triggerRef={detailTriggerRef} />
     </section>
   );
 }

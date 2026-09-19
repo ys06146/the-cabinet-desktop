@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatSourceTime, marketDelayLabel, marketSessionLabel } from './source-formatters';
 import {
   createFullViewport,
   normalizeViewport,
@@ -15,6 +16,9 @@ import { ChartDataPanel } from './ChartDataPanel';
 
 interface MarketChartProps {
   candles: readonly OHLCV[];
+  chartSource?: 'yahoo' | 'mock';
+  chartDelayMinutes?: number;
+  lastCheckedAt?: string | null;
   indicators: TechnicalIndicators;
   onRangeChange: (range: ChartRange) => void;
   quote: StockQuote;
@@ -23,6 +27,9 @@ interface MarketChartProps {
 
 export function MarketChart({
   candles,
+  chartSource = 'yahoo',
+  chartDelayMinutes,
+  lastCheckedAt,
   indicators,
   onRangeChange,
   quote,
@@ -32,6 +39,10 @@ export function MarketChart({
   const [cursorIndex, setCursorIndex] = useState(Math.max(0, candles.length - 1));
   const [liveMessage, setLiveMessage] = useState('');
   const selectedCandle = candles[cursorIndex] ?? candles.at(-1) ?? null;
+  useEffect(() => {
+    setViewport((current) => normalizeViewport(current, candles.length));
+    setCursorIndex((current) => Math.min(current, Math.max(0, candles.length - 1)));
+  }, [candles.length]);
 
   const updateViewport = (nextViewport: ChartViewport): void => {
     const normalized = normalizeViewport(nextViewport, candles.length);
@@ -88,6 +99,12 @@ export function MarketChart({
           </div>
         </div>
 
+        <p className="mt-3 text-xs leading-6 text-cabinet-muted">
+          시세 기준 {formatSourceTime(quote.updatedAt)} · {marketSessionLabel(quote)} · {marketDelayLabel(quote.delayMinutes)}<br />
+          시세 수신 {formatSourceTime(quote.fetchedAt)} · 마지막 확인 {formatSourceTime(lastCheckedAt)}<br />
+          차트 {formatDataSource(chartSource)} · {marketDelayLabel(chartDelayMinutes)} · 마지막 봉 {formatSourceTime(candles.at(-1) ? new Date(candles.at(-1)!.timestamp).toISOString() : null)}<br />
+          차트는 정규장 데이터입니다. 제공처와 거래 시간에 따라 위 시세와 다를 수 있습니다.
+        </p>
         <div className="mt-4">
           <ChartControls
             onPanEarlier={() => pan(-panStep)}
@@ -129,4 +146,3 @@ export function MarketChart({
     </section>
   );
 }
-

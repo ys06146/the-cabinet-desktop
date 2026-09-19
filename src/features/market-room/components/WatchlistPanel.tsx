@@ -1,3 +1,4 @@
+import { formatSourceTime, marketDelayLabel, marketSourceLabel, marketSessionLabel } from './source-formatters';
 import type { MarketRegion, StockQuote } from '../../../domain/market';
 import { formatPercent, formatPrice } from '../market-formatters';
 
@@ -49,6 +50,11 @@ function QuoteButton({
           {rising ? 'Up ' : 'Down '}{formatPercent(quote.changePercent)}
         </span>
       </span>
+      <span className="col-span-2 text-[0.6rem] leading-5 text-cabinet-muted">
+        <span className="block">{marketSourceLabel(quote.source)} · {marketDelayLabel(quote.delayMinutes)} · {marketSessionLabel(quote)}</span>
+        <span className="block">시세 기준 {formatSourceTime(quote.updatedAt)}</span>
+        <span className="block">수신 {formatSourceTime(quote.fetchedAt)}</span>
+      </span>
     </button>
   );
 }
@@ -96,4 +102,3 @@ export function WatchlistPanel({
     </aside>
   );
 }
-

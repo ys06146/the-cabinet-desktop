@@ -1,5 +1,6 @@
+import { formatSourceTime, marketDelayLabel } from './source-formatters';
 import type { MarketSummary, MarketSummaryItem } from '../../../domain/market';
-import { formatDataSource, formatPercent, formatSummaryValue, formatUpdatedAt } from '../market-formatters';
+import { formatDataSource, formatPercent, formatSummaryValue } from '../market-formatters';
 
 interface MarketSummaryStripProps {
   summary: MarketSummary;
@@ -45,7 +46,7 @@ function SummaryItem({ item }: { item: MarketSummaryItem }): React.JSX.Element {
             {rising ? 'Up' : 'Down'} {formatPercent(item.changePercent)}
           </p>
           <p className="mt-1 text-[0.58rem] uppercase tracking-wider text-cabinet-muted">
-            Updated {formatUpdatedAt(item.updatedAt)}
+            시세 기준 {formatSourceTime(item.updatedAt)}
           </p>
         </div>
         <svg
@@ -64,6 +65,7 @@ function SummaryItem({ item }: { item: MarketSummaryItem }): React.JSX.Element {
           />
         </svg>
       </div>
+      <p className="mt-2 text-[0.6rem] leading-5 text-cabinet-muted">{marketDelayLabel(item.delayMinutes)} · 수신 {formatSourceTime(item.fetchedAt)}</p>
     </article>
   );
 }
@@ -81,7 +83,7 @@ export function MarketSummaryStrip({ summary }: MarketSummaryStripProps): React.
           </h2>
         </div>
         <p className="font-mono text-[0.62rem] uppercase tracking-wider text-cabinet-muted">
-          {formatDataSource(summary.source)} · {formatUpdatedAt(summary.updatedAt)}
+          {formatDataSource(summary.source)} · {formatSourceTime(summary.updatedAt)}
         </p>
       </div>
       <div className="grid overflow-hidden rounded-cabinet-md border-l border-t border-cabinet-border sm:grid-cols-2 xl:grid-cols-4">
@@ -92,4 +94,3 @@ export function MarketSummaryStrip({ summary }: MarketSummaryStripProps): React.
     </section>
   );
 }
-

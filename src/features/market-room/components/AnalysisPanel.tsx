@@ -9,6 +9,7 @@ import { formatDataSource, formatPrice } from '../market-formatters';
 interface AnalysisPanelProps {
   analysis: MarketAnalysis;
   quote: StockQuote;
+  chartSource?: 'yahoo' | 'mock';
 }
 
 const TONE_STYLES: Record<AnalysisObservation['tone'], string> = {
@@ -47,7 +48,7 @@ function formatZone(zone: PriceZone | null, quote: StockQuote): string {
   return `${formatPrice(zone.low, quote.currency)} – ${formatPrice(zone.high, quote.currency)}`;
 }
 
-export function AnalysisPanel({ analysis, quote }: AnalysisPanelProps): React.JSX.Element {
+export function AnalysisPanel({ analysis, quote, chartSource = 'yahoo' }: AnalysisPanelProps): React.JSX.Element {
   return (
     <aside aria-labelledby="analysis-title" className="border border-cabinet-border bg-cabinet-surface/55">
       <div className="border-b border-cabinet-border px-4 py-4">
@@ -59,7 +60,7 @@ export function AnalysisPanel({ analysis, quote }: AnalysisPanelProps): React.JS
             Analysis
           </h2>
           <span className="font-mono text-[0.62rem] uppercase tracking-wider text-cabinet-muted">
-            Calculated · {formatDataSource(quote.source)}
+            차트 계산 · {formatDataSource(chartSource)}
           </span>
         </div>
       </div>
@@ -148,4 +149,3 @@ export function AnalysisPanel({ analysis, quote }: AnalysisPanelProps): React.JS
     </aside>
   );
 }
-

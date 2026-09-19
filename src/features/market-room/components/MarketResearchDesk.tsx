@@ -1,3 +1,4 @@
+import { formatSourceTime } from './source-formatters';
 import { useEffect, useRef } from 'react';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
@@ -78,16 +79,16 @@ export function MarketResearchDesk({ market }: MarketResearchDeskProps): React.J
     return () => window.cancelAnimationFrame(frame);
   }, [research.data?.range, research.status]);
 
-  if (overview.status === 'loading') {
+  if (overview.status === 'loading' && !overview.data) {
     return <OverviewSkeleton />;
   }
 
-  if (overview.status === 'error') {
+  if (overview.status === 'error' && !overview.data) {
     return (
       <ErrorMessage
         message={overview.error ?? 'The market overview could not be loaded.'}
         onRetry={retryOverview}
-        retryLabel="Reload mock data"
+        retryLabel="시세 다시 불러오기"
         title="Market Room is unavailable"
       />
     );
@@ -99,11 +100,17 @@ export function MarketResearchDesk({ market }: MarketResearchDeskProps): React.J
 
   return (
     <div className="space-y-6">
-      <MarketSummaryStrip summary={overview.data.summary} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cabinet-border pb-4">
+        <p className="text-xs leading-6 text-cabinet-muted">1분마다 확인 · 마지막 확인 {formatSourceTime(overview.lastCheckedAt)}<br />제공처 갱신 간격과 휴장 중에는 같은 시세가 유지될 수 있습니다.</p>
+        <button className="min-h-11 border border-cabinet-brass px-4 text-xs font-bold text-cabinet-text disabled:opacity-50" disabled={overview.status === 'loading' || research.status === 'loading'} onClick={market.refresh} type="button">{overview.status === 'loading' || research.status === 'loading' ? '확인 중…' : '시세 새로고침'}</button>
+      </div>
+      {overview.error ? <div className="border-l-2 border-cabinet-warning bg-cabinet-warning/5 p-4 text-xs leading-6 text-cabinet-warning" role="alert">갱신하지 못해 마지막으로 받은 시세를 표시합니다. {overview.error}</div> : null}
+      {overview.data.warnings?.map((warning) => <p className="border-l-2 border-cabinet-warning p-3 text-xs text-cabinet-warning" key={warning} role="status">{warning}</p>)}
+      {overview.data.summary ? <MarketSummaryStrip summary={overview.data.summary} /> : null}
 
       {overview.data.watchlist.length === 0 ? (
         <EmptyState
-          description="The configured mock provider returned no watchlist symbols."
+          description="받아온 종목이 없습니다. 새로고침해 다시 확인하세요."
           title="The watchlist is empty"
         />
       ) : (
@@ -124,7 +131,7 @@ export function MarketResearchDesk({ market }: MarketResearchDeskProps): React.J
                 className="mb-3 border-l-2 border-cabinet-brass bg-cabinet-surface px-3 py-2 text-xs text-cabinet-muted"
                 role="status"
               >
-                Refreshing chart and analysis…
+                차트와 분석을 갱신하고 있습니다…
               </p>
             ) : null}
 
@@ -133,7 +140,7 @@ export function MarketResearchDesk({ market }: MarketResearchDeskProps): React.J
                 message={research.error ?? 'The selected stock research could not be loaded.'}
                 onRetry={retryResearch}
                 retryLabel="Retry analysis"
-                title="Research calculation failed"
+                title={research.data ? "갱신 실패 · 마지막으로 받은 차트와 분석입니다" : "차트와 분석을 불러오지 못했습니다"}
               />
             ) : null}
 
@@ -141,13 +148,16 @@ export function MarketResearchDesk({ market }: MarketResearchDeskProps): React.J
               <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_320px]">
                 <MarketChart
                   candles={research.data.candles}
+                  chartSource={research.data.chartSource}
+                  chartDelayMinutes={research.data.chartDelayMinutes}
+                  lastCheckedAt={research.lastCheckedAt}
                   indicators={research.data.indicators}
                   key={`${research.data.quote.symbol}:${research.data.range}`}
                   onRangeChange={handleRangeChange}
                   quote={research.data.quote}
                   range={range}
                 />
-                <AnalysisPanel analysis={research.data.analysis} quote={research.data.quote} />
+                <AnalysisPanel analysis={research.data.analysis} chartSource={research.data.chartSource} quote={research.data.quote} />
               </div>
             ) : null}
           </div>

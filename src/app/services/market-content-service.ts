@@ -1,7 +1,7 @@
 import type { NewsDetail, NewsFilter, NewsItem } from '../../domain/news';
 import type { InvestmentTheme, ThemeId } from '../../domain/theme';
 import type { NewsProvider } from '../../providers/news/news-provider';
-import { mockNewsProvider } from '../../providers/mock/mock-news-provider';
+import { electronNewsProvider } from '../../providers/news/electron-news-provider';
 import { mockThemeProvider } from '../../providers/mock/mock-theme-provider';
 import type { ThemeProvider } from '../../providers/theme/theme-provider';
 
@@ -50,6 +50,6 @@ export class MarketContentService {
 }
 
 export const marketContentService = new MarketContentService(
-  mockNewsProvider,
+  electronNewsProvider,
   mockThemeProvider,
 );

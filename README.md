@@ -2,7 +2,7 @@
 
 The Cabinet은 비개발자를 위한 Windows 우선 개인 워크스페이스입니다. 금융 리서치를 정리하는 **Market Room**과 자연어 게임 아이디어를 작은 기획·코드·플레이 가능한 프로토타입으로 발전시키는 **Game Atelier**로 구성됩니다.
 
-> 현재 상태: v0.1.1 초기 공개 Windows 버전입니다. 실제 데이터·LLM API는 아직 Mock이며, 코드 서명과 실제 설치 업데이트 수용 시험은 남아 있습니다.
+> 현재 개발 버전: v0.1.2. 시세·차트·뉴스를 실제 데이터에 연결하고 주기적으로 갱신합니다. 투자 테마와 Game Atelier AI는 예시 기능입니다. 코드 서명과 실제 설치 업데이트 수용 시험은 남아 있습니다.
 
 소스 저장소: [ys06146/the-cabinet-desktop](https://github.com/ys06146/the-cabinet-desktop)
 
@@ -14,9 +14,9 @@ The Cabinet은 비개발자를 위한 Windows 우선 개인 워크스페이스�
 
 ### Market Room
 
-- 국내·미국 Mock 시장 요약과 관심 종목
+- 국내·미국 실제 시장 요약과 11개 관심 종목, 출처·시세 시각·지연 표시
 - OHLCV 캔들 차트, 거래량, SMA·RSI·MACD 계산
-- 규칙 기반 분석, 가상 뉴스와 투자 테마
+- 규칙 기반 차트 분석, 최신 뉴스 제목·원문 링크, 예시 투자 테마
 - 종목별 투자 메모 저장 및 Market Research JSON 내보내기·가져오기
 
 ### Game Atelier
@@ -26,7 +26,7 @@ The Cabinet은 비개발자를 위한 Windows 우선 개인 워크스페이스�
 - Scene·Script·Task 상태 저장
 - 키보드로 플레이할 수 있는 브라우저 Canvas 아이템 수집 프로토타입
 
-시장 데이터, 뉴스, AI 응답은 모두 Mock Provider가 제공합니다. 실시간 시세·뉴스·LLM·Unity API·로그인·서버·데이터베이스·투자 주문 기능은 연결되어 있지 않습니다.
+Market Room은 시세를 1분, 뉴스를 5분마다 확인합니다. 네이버 금융·Yahoo Finance·Google News RSS를 사용하며 휴장·공급 지연과 연결 실패를 표시합니다. 자세한 동작은 [실제 데이터 안내](docs/LIVE_DATA.md)를 참고하세요. LLM·Unity API·로그인·투자 주문 기능은 연결되어 있지 않습니다.
 
 ## 기술 스택
 
@@ -111,7 +111,7 @@ Market Research 데이터는 JSON 내보내기·가져오기를 지원합니다.
 - Renderer에서 Node.js와 파일 시스템 직접 접근 금지
 - 명시적으로 제한된 Preload API와 IPC 채널만 노출
 - Production 콘텐츠는 경로가 제한된 `cabinet://renderer` 프로토콜로 로드
-- 새 창, 임의 navigation, webview와 외부 URL 실행 차단
+- 새 창, 임의 navigation, webview 차단. 확인한 뉴스 ID의 HTTPS 기사 링크만 기본 브라우저에서 열기 허용
 - GitHub 토큰·인증서·비밀 값을 앱 코드와 패키지에 포함하지 않음
 
 ## 버전과 Release 준비

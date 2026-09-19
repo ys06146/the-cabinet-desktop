@@ -1,3 +1,7 @@
 # Providers
 
-External data access belongs behind provider interfaces in this directory. Market data, news, and AI provider contracts will be introduced only with the feature that consumes them. Their first implementations will be mock providers; renderer components must not embed provider response data.
+Renderer providers implement narrow domain interfaces and delegate real market/news requests to named Preload methods. External requests run in Electron Main with fixed HTTPS sources, bounded responses, validation, caching, and timeouts.
+
+The default market and news services use ElectronMarketDataProvider and ElectronNewsProvider. Mock providers remain available for deterministic tests. Theme and LLM services remain explicit examples.
+
+See [live data behavior](../../docs/LIVE_DATA.md) for sources, refresh rules, timing, and failure handling.

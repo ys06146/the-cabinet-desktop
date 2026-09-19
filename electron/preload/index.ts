@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { ChartRange } from '../../src/domain/market';
+import type { NewsFilter } from '../../src/domain/news';
 import {
   IPC_CHANNELS,
   type CabinetBridge,
@@ -20,6 +22,13 @@ import type { GameAtelierDataV2 } from '../../src/domain/game-atelier-data';
 import type { GameProjectWorkspace } from '../../src/domain/game-project-workspace';
 
 const bridge: CabinetBridge = Object.freeze({
+  getMarketSummary: () => ipcRenderer.invoke(IPC_CHANNELS.getMarketSummary),
+  getWatchlist: () => ipcRenderer.invoke(IPC_CHANNELS.getWatchlist),
+  getStockQuote: (symbol: string) => ipcRenderer.invoke(IPC_CHANNELS.getStockQuote, symbol),
+  getHistoricalData: (symbol: string, range: ChartRange) => ipcRenderer.invoke(IPC_CHANNELS.getHistoricalData, symbol, range),
+  getNews: (filter: NewsFilter) => ipcRenderer.invoke(IPC_CHANNELS.getNews, filter),
+  getNewsDetail: (newsId: string) => ipcRenderer.invoke(IPC_CHANNELS.getNewsDetail, newsId),
+  openNewsArticle: (newsId: string) => ipcRenderer.invoke(IPC_CHANNELS.openNewsArticle, newsId),
   getRuntimeInfo: (): Promise<RuntimeInfo> => ipcRenderer.invoke(IPC_CHANNELS.getRuntimeInfo),
   reportRendererError: (report: RendererErrorReport): void => {
     ipcRenderer.send(IPC_CHANNELS.reportRendererError, {

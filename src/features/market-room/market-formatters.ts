@@ -6,7 +6,7 @@ import type {
 } from '../../domain/market';
 
 export function formatDataSource(source: MarketDataSource): string {
-  const labels: Record<MarketDataSource, string> = { mock: 'Mock' };
+  const labels: Record<MarketDataSource, string> = { mock: '예시', naver: '네이버 금융', yahoo: 'Yahoo Finance' };
   return labels[source];
 }
 
@@ -55,4 +55,3 @@ export function formatChartTimestamp(timestamp: number, range: ChartRange): stri
       : { month: 'short', day: 'numeric' },
   ).format(new Date(timestamp));
 }
-

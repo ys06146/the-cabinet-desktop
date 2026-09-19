@@ -1,6 +1,6 @@
 {
   "name": "the-cabinet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A private desktop workspace for market research and game ideation.",
   "main": "dist-electron/main/index.cjs",
   "author": "The Cabinet",
@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
+    "fast-xml-parser": "5.11.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

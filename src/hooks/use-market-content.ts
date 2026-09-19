@@ -3,6 +3,7 @@ import { marketContentService } from '../app/services/market-content-service';
 import type { NewsDetail, NewsFilter, NewsItem } from '../domain/news';
 import type { InvestmentTheme, ThemeId } from '../domain/theme';
 import { reportApplicationError } from '../lib/report-error';
+import { usePollingResource } from './use-polling-resource';
 
 export type MarketContentLoadStatus = 'loading' | 'ready' | 'error';
 
@@ -10,6 +11,7 @@ interface LoadableState<T> {
   data: T;
   error: string | null;
   status: MarketContentLoadStatus;
+  lastCheckedAt?: string | null;
 }
 
 interface DetailState {
@@ -34,12 +36,6 @@ export interface MarketContentState {
   themes: LoadableState<readonly InvestmentTheme[]>;
 }
 
-const initialNews: LoadableState<readonly NewsItem[]> = {
-  data: [],
-  error: null,
-  status: 'loading',
-};
-
 const initialThemes: LoadableState<readonly InvestmentTheme[]> = {
   data: [],
   error: null,
@@ -58,12 +54,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export function useMarketContent(savedNewsIds: readonly string[]): MarketContentState {
   const [activeNewsFilter, setActiveNewsFilter] = useState<NewsFilter>('all');
-  const [news, setNews] = useState(initialNews);
+  const loadNews = useCallback(() => marketContentService.loadNews(activeNewsFilter), [activeNewsFilter]);
+  const newsResource = usePollingResource(loadNews, 300_000);
   const [themes, setThemes] = useState(initialThemes);
   const [newsDetail, setNewsDetail] = useState(initialDetail);
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<ThemeId | null>(null);
-  const [newsRevision, setNewsRevision] = useState(0);
   const [themeRevision, setThemeRevision] = useState(0);
   const detailRequestId = useRef(0);
   const normalizedSavedNewsIds = useMemo(
@@ -71,33 +67,7 @@ export function useMarketContent(savedNewsIds: readonly string[]): MarketContent
     [savedNewsIds],
   );
 
-  useEffect(() => {
-    let active = true;
-    setNews((current) => ({ ...current, error: null, status: 'loading' }));
-
-    marketContentService
-      .loadNews(activeNewsFilter)
-      .then((items) => {
-        if (active) {
-          setNews({ data: items, error: null, status: 'ready' });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-        reportApplicationError(error);
-        setNews({
-          data: [],
-          error: getErrorMessage(error, '목업 뉴스를 불러오지 못했습니다.'),
-          status: 'error',
-        });
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [activeNewsFilter, newsRevision]);
+  useEffect(() => () => { detailRequestId.current += 1; }, []);
 
   useEffect(() => {
     let active = true;
@@ -165,24 +135,25 @@ export function useMarketContent(savedNewsIds: readonly string[]): MarketContent
     detailRequestId.current += 1;
     setSelectedNewsId(null);
     setNewsDetail(initialDetail);
-    setNews(initialNews);
     setActiveNewsFilter(filter);
   }, []);
 
   const visibleNews = useMemo<LoadableState<readonly NewsItem[]>>(() => {
     const savedIds = new Set(normalizedSavedNewsIds);
     return {
-      ...news,
-      data: news.data.map((item) => ({ ...item, isSaved: savedIds.has(item.id) })),
+      error: newsResource.error,
+      status: newsResource.status === 'idle' ? 'loading' : newsResource.status,
+      lastCheckedAt: newsResource.lastCheckedAt,
+      data: (newsResource.data ?? []).map((item) => ({ ...item, isSaved: savedIds.has(item.id) })),
     };
-  }, [news, normalizedSavedNewsIds]);
+  }, [newsResource.data, newsResource.error, newsResource.status, newsResource.lastCheckedAt, normalizedSavedNewsIds]);
 
   return {
     activeNewsFilter,
     closeNewsDetail,
     news: visibleNews,
     newsDetail,
-    retryNews: () => setNewsRevision((revision) => revision + 1),
+    retryNews: newsResource.refresh,
     retryNewsDetail: loadNewsDetail,
     retryThemes: () => setThemeRevision((revision) => revision + 1),
     selectNews: loadNewsDetail,

@@ -1,4 +1,5 @@
 import { EmptyState } from '../../../components/ui/EmptyState';
+import { MARKET_STOCKS } from '../../../domain/market-catalog';
 import { ErrorMessage } from '../../../components/ui/ErrorMessage';
 import { LoadingSkeleton } from '../../../components/ui/LoadingSkeleton';
 import type { MarketResearchPersistenceState } from '../../../hooks/use-market-research-data';
@@ -14,7 +15,7 @@ export function MarketMemoPanel({
   market,
   persistence,
 }: MarketMemoPanelProps): React.JSX.Element {
-  if (persistence.status === 'loading' || market.overview.status === 'loading') {
+  if (persistence.status === 'loading') {
     return (
       <section className="border border-cabinet-border bg-cabinet-surface/45 p-5">
         <LoadingSkeleton label="저장된 투자 메모 불러오는 중" lines={7} />
@@ -33,20 +34,11 @@ export function MarketMemoPanel({
     );
   }
 
-  if (market.overview.status === 'error') {
-    return (
-      <ErrorMessage
-        message={market.overview.error ?? '종목 목록을 불러오지 못했습니다.'}
-        onRetry={market.retryOverview}
-        retryLabel="종목 다시 불러오기"
-        title="메모 종목을 선택할 수 없습니다"
-      />
-    );
-  }
-
-  const watchlist = market.overview.data?.watchlist ?? [];
-  const selectedQuote =
-    watchlist.find((quote) => quote.symbol === market.selectedSymbol) ?? watchlist[0] ?? null;
+  // Memo identity must not change when a live quote temporarily disappears.
+  const watchlist = MARKET_STOCKS;
+  const selectedQuote = market.selectedSymbol
+    ? watchlist.find((stock) => stock.symbol === market.selectedSymbol)
+    : watchlist[0];
 
   if (!selectedQuote) {
     return (

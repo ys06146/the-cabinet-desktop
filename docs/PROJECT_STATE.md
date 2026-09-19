@@ -1,6 +1,12 @@
 # Project State
 
-Last updated: 2026-09-18
+Last updated: 2026-09-19
+
+## Live data update (v0.1.2)
+
+The user reported static stock prices and requested continuously refreshed news on 2026-09-19. The default market/news services now use real feeds through Main-owned IPC: Naver domestic quotes, Yahoo quotes/history/indices, and Google News RSS metadata. Market Room stays mounted across sections and refreshes quotes every one minute and news every five minutes, continues while minimized, and checks on focus/online. Errors retain previous data with an explicit warning; partial stock/index failures are reported. Source, trade time, receipt time, and delay remain visible. Themes and Game Atelier AI are still examples. Details: [LIVE_DATA.md](LIVE_DATA.md).
+
+The Stage 2–9 mock descriptions below record historical implementation, not current default providers. Production Renderer still cannot make external requests or open arbitrary URLs; a narrow article-ID command opens only validated Google News article links.
 
 ## Current stage
 

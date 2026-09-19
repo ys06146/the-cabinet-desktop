@@ -1,137 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  marketRoomService,
-  type MarketRoomOverview,
-  type StockResearchSnapshot,
-} from '../app/services/market-room-service';
+import { useCallback, useEffect, useState } from 'react';
+import { marketRoomService } from '../app/services/market-room-service';
 import type { ChartRange } from '../domain/market';
-import { reportApplicationError } from '../lib/report-error';
+import { usePollingResource } from './use-polling-resource';
 
-export type MarketRoomLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+const MARKET_REFRESH_MS = 60_000;
+const loadOverview = () => marketRoomService.loadOverview();
 
-interface LoadableState<T> {
-  data: T | null;
-  error: string | null;
-  status: MarketRoomLoadStatus;
-}
-
-export interface MarketRoomState {
-  overview: LoadableState<MarketRoomOverview>;
-  research: LoadableState<StockResearchSnapshot>;
-  selectedSymbol: string | null;
-  range: ChartRange;
-  retryOverview: () => void;
-  retryResearch: () => void;
-  selectRange: (range: ChartRange) => void;
-  selectSymbol: (symbol: string) => void;
-}
-
-const initialOverview: LoadableState<MarketRoomOverview> = {
-  data: null,
-  error: null,
-  status: 'loading',
-};
-
-const initialResearch: LoadableState<StockResearchSnapshot> = {
-  data: null,
-  error: null,
-  status: 'idle',
-};
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'The mock market request could not be completed.';
-}
-
-export function useMarketRoom(): MarketRoomState {
-  const [overview, setOverview] = useState(initialOverview);
-  const [research, setResearch] = useState(initialResearch);
+export function useMarketRoom() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [range, setRange] = useState<ChartRange>('1M');
-  const [overviewRevision, setOverviewRevision] = useState(0);
-  const [researchRevision, setResearchRevision] = useState(0);
-  const researchRequestId = useRef(0);
+  const overview = usePollingResource(loadOverview, MARKET_REFRESH_MS);
+  const loadResearch = useCallback(
+    () => marketRoomService.loadResearch(selectedSymbol!, range),
+    [range, selectedSymbol],
+  );
+  const research = usePollingResource(selectedSymbol ? loadResearch : null, MARKET_REFRESH_MS);
 
   useEffect(() => {
-    let active = true;
-    setOverview((current) => ({ ...current, error: null, status: 'loading' }));
+    if (overview.data) setSelectedSymbol((current) => current ?? overview.data!.watchlist[0]?.symbol ?? null);
+  }, [overview.data]);
 
-    marketRoomService
-      .loadOverview()
-      .then((data) => {
-        if (!active) {
-          return;
-        }
-        setOverview({ data, error: null, status: 'ready' });
-        setSelectedSymbol((current) => current ?? data.watchlist[0]?.symbol ?? null);
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          reportApplicationError(error);
-          setOverview({ data: null, error: getErrorMessage(error), status: 'error' });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [overviewRevision]);
-
-  useEffect(() => {
-    if (!selectedSymbol) {
-      setResearch(initialResearch);
-      return;
-    }
-
-    const requestId = researchRequestId.current + 1;
-    researchRequestId.current = requestId;
-    setResearch((current) => ({ ...current, error: null, status: 'loading' }));
-
-    marketRoomService
-      .loadResearch(selectedSymbol, range)
-      .then((data) => {
-        if (researchRequestId.current === requestId) {
-          setResearch({ data, error: null, status: 'ready' });
-        }
-      })
-      .catch((error: unknown) => {
-        if (researchRequestId.current === requestId) {
-          reportApplicationError(error);
-          setResearch({ data: null, error: getErrorMessage(error), status: 'error' });
-        }
-      });
-
-    return () => {
-      if (researchRequestId.current === requestId) {
-        researchRequestId.current += 1;
-      }
-    };
-  }, [range, researchRevision, selectedSymbol]);
-
-  const retryOverview = useCallback(() => {
-    setOverviewRevision((revision) => revision + 1);
-  }, []);
-
-  const retryResearch = useCallback(() => {
-    setResearchRevision((revision) => revision + 1);
-  }, []);
-
-  const selectRange = useCallback((nextRange: ChartRange) => {
-    setRange(nextRange);
-  }, []);
-
-  const selectSymbol = useCallback((symbol: string) => {
-    setSelectedSymbol(symbol);
-  }, []);
+  const refreshOverview = overview.refresh;
+  const refreshResearch = research.refresh;
+  const refresh = useCallback(() => {
+    refreshOverview();
+    refreshResearch();
+  }, [refreshOverview, refreshResearch]);
 
   return {
-    overview,
-    research,
-    selectedSymbol,
-    range,
-    retryOverview,
-    retryResearch,
-    selectRange,
-    selectSymbol,
+    overview, research, selectedSymbol, range, refresh,
+    retryOverview: overview.refresh,
+    retryResearch: research.refresh,
+    selectRange: setRange,
+    selectSymbol: setSelectedSymbol,
   };
 }
 
+export type MarketRoomState = ReturnType<typeof useMarketRoom>;
+export type MarketRoomLoadStatus = MarketRoomState['overview']['status'];

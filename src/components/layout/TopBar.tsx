@@ -153,11 +153,11 @@ export function TopBar({
             자동 업데이트
           </button>
           <span
-            aria-label="Data source status: Mock Data"
+            aria-label="데이터 출처는 각 화면에 표시됩니다"
             className="flex min-h-9 shrink-0 items-center gap-2 rounded-cabinet-sm border border-cabinet-border bg-cabinet-background/40 px-3 text-xs font-semibold text-cabinet-text"
           >
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-cabinet-positive" />
-            Mock Data
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-cabinet-brass" />
+            출처·시각은 각 화면 참고
           </span>
           <span
             aria-atomic="true"
