@@ -87,18 +87,25 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $false
-          $releasePath = "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
-          $lookupErrors = Join-Path $env:RUNNER_TEMP 'release-lookup-errors.txt'
-          $response = gh api --include $releasePath 2> $lookupErrors
-          $lookupExitCode = $LASTEXITCODE
-          $responseText = [string]::Join([Environment]::NewLine, $response)
-          $statusMatch = [regex]::Match($responseText, '(?m)^HTTP/\S+\s+(\d{3})\b')
-          if (-not $statusMatch.Success) {
-            throw 'GitHub release lookup did not return an HTTP status.'
+
+          function Get-TagReleases {
+            # Draft releases are included in the authenticated list but may return
+            # 404 from the tag endpoint. Read every page before deciding to create.
+            $response = gh api --paginate --slurp "repos/$env:GITHUB_REPOSITORY/releases?per_page=100"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not list GitHub releases.' }
+            $pages = ConvertFrom-Json -InputObject ([string]::Join([Environment]::NewLine, $response)) -NoEnumerate
+            if ($pages -isnot [array]) { throw 'GitHub release list has an unexpected format.' }
+            foreach ($page in $pages) {
+              if ($page -isnot [array]) { throw 'GitHub release page has an unexpected format.' }
+              foreach ($candidate in $page) {
+                if ($candidate.tag_name -eq $env:RELEASE_TAG) { $candidate }
+              }
+            }
           }
 
-          $status = [int]$statusMatch.Groups[1].Value
-          if ($status -eq 404) {
+          $tagReleases = @(Get-TagReleases)
+          if ($tagReleases.Count -gt 1) { throw 'Multiple releases exist for this tag. Refusing to choose or create another.' }
+          if ($tagReleases.Count -eq 0) {
             $notesPath = "docs/releases/v$env:APP_VERSION.md"
             $createArgs = @(
               'release', 'create', $env:RELEASE_TAG,
@@ -112,23 +119,21 @@ jobs:
             }
             gh @createArgs
             if ($LASTEXITCODE -ne 0) { throw 'Could not create the draft release.' }
-          } elseif ($status -ne 200 -or $lookupExitCode -ne 0) {
-            throw "GitHub release lookup failed with HTTP $status (exit $lookupExitCode)."
+            $tagReleases = @(Get-TagReleases)
           }
 
-          $releaseJson = gh api $releasePath
-          if ($LASTEXITCODE -ne 0) { throw 'Could not read the target release.' }
-          $release = $releaseJson | ConvertFrom-Json
-          if (-not $release.draft -or $release.prerelease) {
+          if ($tagReleases.Count -ne 1) { throw 'Expected exactly one release after preparing the draft.' }
+          $release = $tagReleases[0]
+          if ($release.draft -ne $true -or $release.prerelease -ne $false) {
             throw 'Only a stable draft release can receive artifacts. Published releases must not be overwritten.'
           }
+          if ([string]$release.id -notmatch '^[1-9][0-9]*$') { throw 'The draft release ID is invalid.' }
           "release_id=$($release.id)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Package and publish Windows x64 update
+
+      - name: Package Windows x64 update without publishing
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx --no-install electron-builder --win --x64 --publish always
+        run: npx --no-install electron-builder --win --x64 --publish never
 
       - name: Verify local release artifacts
         shell: pwsh
@@ -155,6 +160,63 @@ jobs:
             Write-Error 'The unpacked Windows build does not contain an executable.'
             exit 1
           }
+
+      - name: Upload artifacts to the verified draft ID
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_ID: ${{ steps.draft.outputs.release_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          if ($env:RELEASE_ID -notmatch '^[1-9][0-9]*$') { throw 'The draft release ID is invalid.' }
+          $requiredAssets = @(
+            "The-Cabinet-Setup-$env:APP_VERSION.exe",
+            "The-Cabinet-Setup-$env:APP_VERSION.exe.blockmap",
+            'latest.yml'
+          )
+
+          foreach ($name in $requiredAssets) {
+            $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the draft before uploading.' }
+            $release = $releaseJson | ConvertFrom-Json
+            if (
+              [string]$release.id -ne $env:RELEASE_ID -or
+              $release.draft -ne $true -or $release.prerelease -ne $false -or
+              $release.tag_name -ne $env:RELEASE_TAG
+            ) {
+              throw 'Only the verified stable draft for this tag can receive artifacts.'
+            }
+
+            $localFile = Get-Item -LiteralPath (Join-Path 'release' $name)
+            if ($localFile.Length -le 0) { throw "Release artifact is empty: $name" }
+            $localDigest = 'sha256:' + (Get-FileHash -LiteralPath $localFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $existing = @($release.assets | Where-Object { $_.name -eq $name })
+            if ($existing.Count -gt 0) {
+              if (
+                $existing.Count -ne 1 -or $existing[0].state -ne 'uploaded' -or
+                $existing[0].size -ne $localFile.Length -or $existing[0].digest -ne $localDigest
+              ) {
+                throw "Existing release asset differs from the local file. Refusing to overwrite: $name"
+              }
+              Write-Output "Verified existing asset: $name"
+              continue
+            }
+
+            $uploadUrl = "https://uploads.github.com/repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID/assets?name=" + [Uri]::EscapeDataString($name)
+            $uploadedJson = gh api --method POST $uploadUrl --header 'Content-Type: application/octet-stream' --input $localFile.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Could not upload release asset: $name" }
+            $uploaded = $uploadedJson | ConvertFrom-Json
+            if (
+              $uploaded.name -ne $name -or $uploaded.state -ne 'uploaded' -or
+              $uploaded.size -ne $localFile.Length -or $uploaded.digest -ne $localDigest
+            ) {
+              throw "Uploaded release asset failed integrity verification: $name"
+            }
+          }
+
 
       - name: Verify draft assets and publish Release
         shell: pwsh
@@ -192,7 +254,7 @@ jobs:
             }
           }
 
-          gh release edit $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --draft=false
+          gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID" -F draft=false
           if ($LASTEXITCODE -ne 0) { throw 'Could not publish the verified draft release.' }
 
       - name: Verify published Release

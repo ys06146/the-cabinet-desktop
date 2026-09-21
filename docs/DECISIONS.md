@@ -157,9 +157,9 @@ Branch and pull-request CI has read-only repository permission and can only inst
 
 The Windows workflow accepts only stable `vMAJOR.MINOR.PATCH` tags and compares the complete tag against `v${package.json.version}` before packaging. A mismatch fails closed, so installer names, updater metadata, GitHub tags, and application versions cannot silently diverge.
 
-## D-041 — electron-builder is the single Release publisher
+## D-041 — A verified draft ID owns sequential release uploads
 
-Local `dist:win` remains permanently non-publishing. The tag workflow alone invokes `electron-builder --win --x64 --publish always`, with `GH_TOKEN` scoped to that step and sourced only from `secrets.GITHUB_TOKEN`. GitHub `releaseType: release` is followed by an API assertion for published status and the three required update assets instead of using a second action that uploads the same files again.
+Both local packaging and the tag workflow invoke electron-builder with `--publish never`. The tag workflow resolves one stable draft from the authenticated, paginated GitHub release list, creating it only when no release exists for the tag. It then uploads the Setup EXE, blockmap, and `latest.yml` sequentially to that numeric draft ID. Every upload rechecks the draft identity and state; an existing asset is reused only when its name, uploaded state, byte size, and SHA256 match the local file. Conflicts fail without overwriting. After all three assets pass the same checks, the workflow publishes that exact release ID and verifies its public state. This avoids parallel publisher creation and tag endpoints that cannot resolve drafts. Only GitHub API steps receive repository-scoped `GH_TOKEN`; packaging has no release credential.
 
 ## D-042 — Production local content uses a restricted custom protocol
 

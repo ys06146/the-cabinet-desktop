@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-19
+Last updated: 2026-09-21
 
 ## Live data update (v0.1.2)
 
@@ -92,9 +92,9 @@ The Stage 9 verification evidence below is historical (2026-07-31), not a claim 
 - CI uses the current Node.js LTS with npm caching, then runs `npm ci`, lint, typecheck, tests, and the production build without packaging or publishing a Release.
 - `.github/workflows/release-windows.yml` runs only for `v*.*.*` tag pushes on `windows-latest` with `contents: write`.
 - Release validation requires the tag to equal `v` plus the exact stable SemVer in `package.json`; mismatches fail before dependency installation or packaging.
-- The release workflow repeats the complete quality gate and explicitly invokes `electron-builder --win --x64 --publish always`.
-- `GH_TOKEN` is supplied only to publishing and verification steps through `secrets.GITHUB_TOKEN`; no credential is committed or embedded in the application.
-- `releaseType: release` prevents draft publication, and a post-publish GitHub API check rejects draft, prerelease, or missing Setup EXE, blockmap, and `latest.yml` assets.
+- The release workflow repeats the complete quality gate and packages with `electron-builder --win --x64 --publish never`. It uploads the three verified artifacts sequentially to the numeric draft release ID.
+- `GH_TOKEN` is supplied only to release lookup, upload, and verification steps through `secrets.GITHUB_TOKEN`; packaging has no publication token and no credential is embedded in the application.
+- Release lookup includes drafts across all pages, rejects duplicates and already published tags, and retains the numeric ID. The workflow verifies Setup EXE, blockmap, and `latest.yml` size and SHA256 before publishing that exact draft; a final API check confirms public status.
 - The obsolete combined `windows.yml` workflow was removed to prevent duplicate CI and release execution.
 - README release instructions and `docs/RELEASE_CHECKLIST.md` document versioning, tag creation, release verification, and installed-app update acceptance testing.
 

@@ -10,7 +10,7 @@ remain explicit user actions, with the existing save-before-install barrier.
 
 ## Live data correction
 
-v0.1.2 replaces default mock stock/news data with current external feeds and automatic refresh. Validate the packaged app's real provider connectivity and source timestamps, then publish a new v0.1.2 tag and assets. Preserve v0.1.1. See LIVE_DATA.md for endpoint limitations and refresh behavior.
+v0.1.2 replaces default mock stock/news data with current external feeds and automatic refresh. Local and GitHub CI validation passed 256 tests. The v0.1.2 tag preserves the verified application source. Its release uses the locally verified installer after recovery from a draft-by-tag lookup failure; main fixes draft lookup by enumerating authenticated release pages. Preserve both published tags and asset sets. See LIVE_DATA.md for endpoint limitations and refresh behavior.
 
 ## Continue development
 
