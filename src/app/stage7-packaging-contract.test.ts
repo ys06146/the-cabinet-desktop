@@ -61,7 +61,10 @@ describe('Stage 7 Windows packaging contract', () => {
   it('never publishes from the local packaging command and includes updater metadata in CI', () => {
     expect(manifest.scripts['dist:win']).toContain('--publish never');
     expect(workflow).toContain('release/latest.yml');
-    expect(workflow).toContain('--publish always');
+    expect(workflow).toContain('--publish never');
+    expect(workflow).not.toContain('--publish always');
+    expect(workflow).toContain('Upload artifacts to the verified draft ID');
+    expect(workflow).toContain('--input $localFile.FullName');
     expect(workflow).toContain('GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}');
   });
 });
